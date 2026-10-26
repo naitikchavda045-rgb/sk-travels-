@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SK TRAVELS - Safe & Comfortable Luxury Chauffeur & Car Rental</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#05070A',
+            surface: '#0E131F',
+            surfaceElevated: '#171E2E',
+            gold: '#EAB308',
+            goldGlow: '#FACC15',
+            cyanAccent: '#06B6D4',
+            cyanGlow: '#22D3EE'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Leaflet CSS & JS for Interactive Live Tracking -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    body {
+      background-color: #05070A;
+      color: #F3F4F6;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Glassmorphism Classes */
+    .glass-card {
+      background: rgba(14, 19, 31, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-nav {
+      background: rgba(5, 7, 10, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(234, 179, 8, 0.15);
+    }
+    .gold-glow-hover:hover {
+      box-shadow: 0 0 25px rgba(234, 179, 8, 0.35);
+    }
+    .cyan-glow-hover:hover {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #05070A;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #EAB308;
+    }
+
+    #bgCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .custom-leaflet-marker {
+      transition: all 0.2s ease-out;
+    }
+
+    /* Pulse animation */
+    @keyframes pulse-gold {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+    }
+    .animate-pulse-gold {
+      animation: pulse-gold 3s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="relative min-h-screen flex flex-col justify-between selection:bg-gold selection:text-black">
+
+  <!-- Background Particle Canvas -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- Sticky Glassmorphism Header -->
+  <header class="sticky top-0 z-40 glass-nav transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <!-- Logo & Branding -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('booking')">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-gold to-yellow-200 flex items-center justify-center shadow-lg shadow-gold/20">
+          <i class="fa-solid font-bold fa-car-side text-obsidian text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg sm:text-xl tracking-wider text-white flex items-center gap-2">
+            SK TRAVELS
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gold/20 text-gold font-semibold border border-gold/40">LUXURY</span>
+          </h1>
+          <p class="text-xs text-slate-400 font-medium tracking-wide">Safe & Comfortable Rides</p>
+        </div>
+      </div>
+
+      <!-- Navigation Actions -->
+      <nav class="hidden md:flex items-center space-x-2">
+        <button onclick="switchTab('booking')" id="nav-booking" class="nav-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 text-gold bg-gold/10 border border-gold/30">
+          <i class="fa-solid fa-taxi mr-2"></i> Book Ride
+        </button>
+        <button onclick="switchTab('track')" id="nav-track" class="nav-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i class="fa-solid fa-location-crosshairs mr-2 text-cyan-400"></i> Track Booking
+        </button>
+        <button onclick="promptDriverAccess()" id="nav-driver" class="nav-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i class="fa-solid fa-id-card mr-2 text-emerald-400"></i> Driver Duty
+        </button>
+        <button onclick="promptOwnerAccess()" id="nav-owner" class="nav-btn px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 text-slate-300 hover:text-white hover:bg-slate-800/60">
+          <i class="fa-solid fa-user-shield mr-2 text-amber-400"></i> Owner Control
+        </button>
+      </nav>
+
+      <!-- Contact Quick Dial & Mobile Menu Button -->
+      <div class="flex items-center space-x-3">
+        <a href="tel:+919898710612" class="hidden sm:flex items-center space-x-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition-all">
+          <i class="fa-solid fa-phone animate-bounce"></i>
+          <span>+91 9898710612</span>
+        </a>
+        <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg bg-surfaceElevated text-slate-300 hover:text-white focus:outline-none">
+          <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer Navigation -->
+    <div id="mobileMenu" class="hidden md:hidden glass-card border-t border-slate-800 px-4 py-3 space-y-2">
+      <button onclick="switchTab('booking'); toggleMobileMenu()" class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold text-gold bg-gold/10">
+        <i class="fa-solid fa-taxi mr-2"></i> Book Ride
+      </button>
+      <button onclick="switchTab('track'); toggleMobileMenu()" class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-200 hover:bg-slate-800">
+        <i class="fa-solid fa-location-crosshairs mr-2 text-cyan-400"></i> Live GPS Tracking
+      </button>
+      <button onclick="promptDriverAccess(); toggleMobileMenu()" class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-200 hover:bg-slate-800">
+        <i class="fa-solid fa-id-card mr-2 text-emerald-400"></i> Driver Portal
+      </button>
+      <button onclick="promptOwnerAccess(); toggleMobileMenu()" class="w-full text-left px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-200 hover:bg-slate-800">
+        <i class="fa-solid fa-user-shield mr-2 text-amber-400"></i> Owner Control Admin
+      </button>
+      <div class="pt-2 border-t border-slate-800 flex justify-around text-xs">
+        <a href="tel:+919898710612" class="text-emerald-400 flex items-center"><i class="fa-solid fa-phone mr-1"></i> Call Us</a>
+        <a href="https://wa.me/919898710612" target="_blank" class="text-green-400 flex items-center"><i class="fa-brands fa-whatsapp mr-1"></i> WhatsApp</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content View Area -->
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+
+    <!-- VIEW 1: CUSTOMER BOOKING FLOW VIEW -->
+    <section id="view-booking" class="view-panel space-y-8">
+      
+      <!-- Hero Header -->
+      <div class="text-center space-y-4 max-w-3xl mx-auto pt-4">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-gold/30 text-gold text-xs font-semibold tracking-wide">
+          <i class="fa-solid fa-shield-halved text-cyanAccent"></i> 100% Verified Chauffeurs & Clean Cars
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          Luxury Journeys, <span class="bg-gradient-to-r from-gold via-yellow-200 to-amber-500 bg-clip-text text-transparent">Unmatched Comfort</span>
+        </h2>
+        <p class="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
+          Book executive sedans, spacious SUVs, and luxury coaches across Gujarat & Western India with automated transparent pricing.
+        </p>
+      </div>
+
+      <!-- Step Indicator Bar -->
+      <div class="max-w-2xl mx-auto">
+        <div class="flex items-center justify-between relative">
+          <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-800 -translate-y-1/2 z-0"></div>
+          <div id="step-line-fill" class="absolute top-1/2 left-0 h-1 bg-gradient-to-r from-gold to-cyanAccent -translate-y-1/2 z-0 transition-all duration-500" style="width: 0%;"></div>
+
+          <div id="step-node-1" class="relative z-10 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full bg-gold text-obsidian font-bold flex items-center justify-center ring-4 ring-gold/20 shadow-lg">1</div>
+            <span class="text-xs font-semibold mt-2 text-gold">Trip Details</span>
+          </div>
+          <div id="step-node-2" class="relative z-10 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full bg-slate-800 text-slate-400 font-bold flex items-center justify-center ring-4 ring-slate-900 border border-slate-700">2</div>
+            <span class="text-xs font-semibold mt-2 text-slate-500">Select Car</span>
+          </div>
+          <div id="step-node-3" class="relative z-10 flex flex-col items-center">
+            <div class="w-10 h-10 rounded-full bg-slate-800 text-slate-400 font-bold flex items-center justify-center ring-4 ring-slate-900 border border-slate-700">3</div>
+            <span class="text-xs font-semibold mt-2 text-slate-500">Confirm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 1 CONTAINER: TRIP FORM & AUTO CALCULATION -->
+      <div id="booking-step-1" class="glass-card rounded-2xl p-6 sm:p-8 max-w-3xl mx-auto shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-10 -right-10 w-40 h-40 bg-gold/10 rounded-full blur-3xl"></div>
+
+        <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2 border-b border-slate-800 pb-4">
+          <i class="fa-solid fa-route text-gold"></i> Step 1: Where are you traveling?
+        </h3>
+
+        <!-- Popular Route Presets Quick Buttons -->
+        <div class="mb-6">
+          <label class="block text-xs font-medium text-slate-400 mb-2">Popular Route Presets (Instant Auto Calc):</label>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="applyPreset('Anand', 'Ahmedabad Airport (AMD)')" class="px-3 py-1.5 rounded-lg bg-surfaceElevated hover:bg-gold/20 hover:text-gold text-xs text-slate-300 border border-slate-700 transition">Anand ➔ AMD Airport</button>
+            <button onclick="applyPreset('Vadodara', 'Ahmedabad')" class="px-3 py-1.5 rounded-lg bg-surfaceElevated hover:bg-gold/20 hover:text-gold text-xs text-slate-300 border border-slate-700 transition">Vadodara ➔ Ahmedabad</button>
+            <button onclick="applyPreset('Anand', 'Surat')" class="px-3 py-1.5 rounded-lg bg-surfaceElevated hover:bg-gold/20 hover:text-gold text-xs text-slate-300 border border-slate-700 transition">Anand ➔ Surat</button>
+            <button onclick="applyPreset('Ahmedabad', 'Mumbai')" class="px-3 py-1.5 rounded-lg bg-surfaceElevated hover:bg-gold/20 hover:text-gold text-xs text-slate-300 border border-slate-700 transition">Ahmedabad ➔ Mumbai</button>
+            <button onclick="applyPreset('Anand', 'Dwarka')" class="px-3 py-1.5 rounded-lg bg-surfaceElevated hover:bg-gold/20 hover:text-gold text-xs text-slate-300 border border-slate-700 transition">Anand ➔ Dwarka</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- Pickup Location -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Pickup City / Address</label>
+            <div class="relative">
+              <i class="fa-solid fa-circle-dot absolute left-3.5 top-3.5 text-gold text-sm"></i>
+              <input type="text" id="pickupLoc" oninput="calculateDistanceAndFare()" placeholder="e.g. Anand, Vallabh Vidyanagar" class="w-full bg-obsidian border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-gold transition" />
+            </div>
+          </div>
+
+          <!-- Destination Location -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Destination City / Address</label>
+            <div class="relative">
+              <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-cyan-400 text-sm"></i>
+              <input type="text" id="dropLoc" oninput="calculateDistanceAndFare()" placeholder="e.g. Ahmedabad Airport, Surat" class="w-full bg-obsidian border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400 transition" />
+            </div>
+          </div>
+
+          <!-- Date & Time -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Travel Date & Time</label>
+            <input type="datetime-local" id="travelDateTime" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold transition" />
+          </div>
+
+          <!-- Trip Type -->
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Trip Type</label>
+            <select id="tripType" onchange="calculateDistanceAndFare()" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold transition">
+              <option value="One Way">One Way Trip</option>
+              <option value="Round Trip">Round Trip (Return)</option>
+              <option value="Multi-Day">Multi-Day Rental</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Automatic Distance & Fare Live Estimate Preview Card -->
+        <div id="farePreviewCard" class="mt-6 p-4 rounded-xl bg-gradient-to-r from-surface to-surfaceElevated border border-gold/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-gold/10 border border-gold/40 flex items-center justify-center text-gold text-xl">
+              <i class="fa-solid fa-calculator"></i>
+            </div>
+            <div>
+              <p class="text-xs text-slate-400 uppercase font-semibold">Automatic Distance Estimate</p>
+              <p class="text-lg font-bold text-white"><span id="calcDistance">0</span> KM <span class="text-xs font-normal text-slate-400"> (Approx. <span id="calcTime">0 hrs</span>)</span></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-400 uppercase font-semibold">Estimated Base Fare Starts At</p>
+            <p class="text-2xl font-extrabold text-gold">₹<span id="calcBaseFare">0</span></p>
+          </div>
+        </div>
+
+        <div class="mt-8 flex justify-end">
+          <button onclick="goToStep2()" class="px-8 py-3.5 rounded-xl bg-gradient-to-r from-gold to-yellow-500 text-obsidian font-bold hover:shadow-lg hover:shadow-gold/30 transition-all flex items-center gap-2">
+            <span>Select Vehicle</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2 CONTAINER: FLEET SELECTION -->
+      <div id="booking-step-2" class="hidden max-w-5xl mx-auto space-y-6">
+        <div class="flex items-center justify-between">
+          <button onclick="goToStep1()" class="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-2">
+            <i class="fa-solid fa-arrow-left"></i> Back to Trip Details
+          </button>
+          <p class="text-sm font-semibold text-gold">Distance Calculated: <span id="step2DistanceText">0</span> KM (<span id="step2TripTypeText">One Way</span>)</p>
+        </div>
+
+        <h3 class="text-2xl font-bold text-white tracking-tight">Select Your Fleet Vehicle</h3>
+        
+        <!-- Dynamic Fleet Cards Grid -->
+        <div id="fleetCardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Loaded dynamically from JavaScript -->
+        </div>
+      </div>
+
+      <!-- STEP 3 CONTAINER: PASSENGER INFO & CONFIRMATION -->
+      <div id="booking-step-3" class="hidden glass-card rounded-2xl p-6 sm:p-8 max-w-3xl mx-auto shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+          <h3 class="text-xl font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-check text-emerald-400"></i> Step 3: Passenger Information
+          </h3>
+          <button onclick="goToStep2()" class="text-xs text-slate-400 hover:text-white"><i class="fa-solid fa-pen"></i> Change Vehicle</button>
+        </div>
+
+        <!-- Selected Vehicle & Route Summary Banner -->
+        <div id="bookingSummaryBanner" class="mb-6 p-4 rounded-xl bg-obsidian border border-slate-800 space-y-2">
+          <!-- Dynamic Summary -->
+        </div>
+
+        <form id="passengerForm" onsubmit="event.preventDefault(); finalizeBooking();" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Full Name *</label>
+              <input type="text" id="passName" required placeholder="e.g. Rajesh Kumar" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold transition" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Mobile Phone Number *</label>
+              <input type="tel" id="passPhone" required placeholder="e.g. 9898710612" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold transition" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">Special Instructions / Luggage Notes (Optional)</label>
+            <textarea id="passNotes" rows="2" placeholder="Flight number, extra luggage request, or preferred pick point..." class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold transition"></textarea>
+          </div>
+
+          <div class="pt-4 flex flex-col sm:flex-row items-center gap-4">
+            <button type="submit" class="w-full sm:flex-1 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-base shadow-lg hover:shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-circle-check"></i> Confirm Booking & Track Live
+            </button>
+            <button type="button" onclick="bookViaWhatsAppDirect()" class="w-full sm:w-auto px-6 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold text-sm transition flex items-center justify-center gap-2">
+              <i class="fa-brands fa-whatsapp text-lg"></i> Book via WhatsApp
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- VIEW 2: ON-PAGE LIVE GPS TRACKING MAP VIEW -->
+    <section id="view-track" class="view-panel hidden space-y-6">
+      
+      <!-- Lookup Search Bar -->
+      <div class="glass-card p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-satellite-dish text-cyan-400 animate-pulse"></i> Live Ride Radar & Chauffeur Tracking
+          </h2>
+          <p class="text-xs text-slate-400">Track real-time location, ETA, and driver contact.</p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input type="text" id="trackSearchInput" placeholder="Enter Booking ID (e.g. SK-8942) or Mobile" class="bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-cyan-400 w-full sm:w-64" />
+          <button onclick="searchTrackingBooking()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-obsidian font-bold text-xs transition">Track</button>
+        </div>
+      </div>
+
+      <!-- Main Tracking Dashboard (Map + Details) -->
+      <div id="activeTrackingCard" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left: Route Info & Driver Card -->
+        <div class="glass-card p-6 rounded-2xl space-y-6 flex flex-col justify-between">
+          <div>
+            <!-- Status Badge -->
+            <div class="flex items-center justify-between mb-4">
+              <span id="trackStatusBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                Driver En Route
+              </span>
+              <span class="text-xs font-mono text-slate-400">ID: <span id="trackBookingId">SK-0000</span></span>
+            </div>
+
+            <!-- Route Info -->
+            <div class="space-y-3 border-b border-slate-800 pb-4">
+              <div>
+                <p class="text-xs text-slate-400 uppercase">Pickup Location</p>
+                <p id="trackPickup" class="text-sm font-semibold text-white">Anand</p>
+              </div>
+              <div>
+                <p class="text-xs text-slate-400 uppercase">Destination Drop</p>
+                <p id="trackDrop" class="text-sm font-semibold text-white">Ahmedabad Airport</p>
+              </div>
+              <div class="flex justify-between text-xs pt-1">
+                <span class="text-slate-400">Estimated Total Distance:</span>
+                <span id="trackDistance" class="font-bold text-gold">75 KM</span>
+              </div>
+            </div>
+
+            <!-- Assigned Driver Profile -->
+            <div class="mt-4 pt-2">
+              <p class="text-xs font-semibold text-slate-400 uppercase mb-3">Assigned Chauffeur</p>
+              <div class="flex items-center gap-4 bg-obsidian p-3.5 rounded-xl border border-slate-800">
+                <img id="trackDriverImg" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" class="w-14 h-14 rounded-full object-cover border-2 border-gold" alt="Driver" />
+                <div class="flex-1">
+                  <h4 id="trackDriverName" class="font-bold text-white text-base">Ramesh Patel</h4>
+                  <p id="trackDriverCar" class="text-xs text-gold font-medium">Toyota Innova Crysta</p>
+                  <p id="trackDriverPlate" class="text-xs font-mono text-slate-400">GJ-23-AB-9988</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Driver Action Buttons -->
+          <div class="space-y-2 pt-2">
+            <a id="trackCallBtn" href="tel:+919898710612" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition">
+              <i class="fa-solid fa-phone"></i> Call Driver Now
+            </a>
+            <a id="trackWhatsappBtn" href="https://wa.me/919898710612" target="_blank" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition">
+              <i class="fa-brands fa-whatsapp text-green-400 text-sm"></i> WhatsApp Driver
+            </a>
+          </div>
+        </div>
+
+        <!-- Right: Leaflet Interactive Live Simulation Map -->
+        <div class="lg:col-span-2 glass-card rounded-2xl p-4 flex flex-col space-y-3 min-h-[450px]">
+          <!-- Map Controls Header -->
+          <div class="flex items-center justify-between px-2">
+            <div class="flex items-center gap-3">
+              <span class="flex h-3 w-3 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+              </span>
+              <span class="text-xs font-semibold text-slate-300">Live GPS Telemetry Simulation</span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <button onclick="toggleMapSimulation()" id="simPlayBtn" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 text-xs font-semibold border border-cyan-500/40">
+                <i class="fa-solid fa-play mr-1"></i> Start Simulation
+              </button>
+              <button onclick="resetMapSimulation()" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold">
+                <i class="fa-solid fa-rotate-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Leaflet Map Container -->
+          <div id="leafletMap" class="w-full flex-grow rounded-xl border border-slate-800 z-10 min-h-[380px]"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 3: OWNER / ADMIN CONTROL DASHBOARD VIEW -->
+    <section id="view-owner" class="view-panel hidden space-y-6">
+      
+      <!-- Owner Top Banner -->
+      <div class="glass-card p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border-l-4 border-l-gold">
+        <div>
+          <h2 class="text-2xl font-extrabold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-gold"></i> Owner Control Dashboard
+          </h2>
+          <p class="text-xs text-slate-400">Complete fleet management, driver roster, rates, and customer bookings.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="lockOwnerPanel()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700">
+            <i class="fa-solid fa-lock mr-1"></i> Lock Dashboard
+          </button>
+        </div>
+      </div>
+
+      <!-- Owner Sub-Tabs Navigation -->
+      <div class="flex overflow-x-auto gap-2 border-b border-slate-800 pb-2">
+        <button onclick="switchOwnerTab('bookings')" id="owner-tab-bookings" class="owner-nav-btn px-5 py-2.5 rounded-xl text-xs font-bold transition bg-gold text-obsidian">
+          <i class="fa-solid fa-list-check mr-2"></i> Bookings (<span id="ownerBookingCount">0</span>)
+        </button>
+        <button onclick="switchOwnerTab('cars')" id="owner-tab-cars" class="owner-nav-btn px-5 py-2.5 rounded-xl text-xs font-bold transition text-slate-400 hover:bg-slate-800">
+          <i class="fa-solid fa-car mr-2"></i> Car Fleet Manager
+        </button>
+        <button onclick="switchOwnerTab('drivers')" id="owner-tab-drivers" class="owner-nav-btn px-5 py-2.5 rounded-xl text-xs font-bold transition text-slate-400 hover:bg-slate-800">
+          <i class="fa-solid fa-users mr-2"></i> Driver Roster
+        </button>
+        <button onclick="switchOwnerTab('settings')" id="owner-tab-settings" class="owner-nav-btn px-5 py-2.5 rounded-xl text-xs font-bold transition text-slate-400 hover:bg-slate-800">
+          <i class="fa-solid fa-gear mr-2"></i> Business Settings
+        </button>
+      </div>
+
+      <!-- OWNER SUB-TAB 1: BOOKING MANAGEMENT -->
+      <div id="owner-sub-bookings" class="owner-sub-panel space-y-4">
+        <div class="flex justify-between items-center">
+          <input type="text" id="ownerBookingSearch" oninput="renderOwnerBookings()" placeholder="Search by customer name, mobile, or ID..." class="bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-xs text-white w-full sm:w-72 focus:outline-none focus:border-gold" />
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-surfaceElevated text-slate-400 uppercase font-semibold">
+                <tr>
+                  <th class="p-4">Booking ID</th>
+                  <th class="p-4">Customer</th>
+                  <th class="p-4">Route</th>
+                  <th class="p-4">Car Selected</th>
+                  <th class="p-4">Fare</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ownerBookingsTableBody" class="divide-y divide-slate-800">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- OWNER SUB-TAB 2: CAR FLEET MANAGEMENT (CRUD) -->
+      <div id="owner-sub-cars" class="owner-sub-panel hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white">Cars & Fleet Inventory</h3>
+          <button onclick="openAddCarModal()" class="px-4 py-2 rounded-xl bg-gold hover:bg-yellow-400 text-obsidian font-bold text-xs transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> Add New Car to Fleet
+          </button>
+        </div>
+
+        <!-- Fleet Grid -->
+        <div id="ownerCarsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Dynamically populated car cards with Edit & Delete options -->
+        </div>
+      </div>
+
+      <!-- OWNER SUB-TAB 3: DRIVER MANAGEMENT (CRUD) -->
+      <div id="owner-sub-drivers" class="owner-sub-panel hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white">Chauffeur & Driver Roster</h3>
+          <button onclick="openAddDriverModal()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs transition flex items-center gap-2">
+            <i class="fa-solid fa-user-plus"></i> Add New Driver
+          </button>
+        </div>
+
+        <!-- Driver Cards Grid -->
+        <div id="ownerDriversGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Dynamically populated driver cards with Edit & Delete options -->
+        </div>
+      </div>
+
+      <!-- OWNER SUB-TAB 4: BUSINESS SETTINGS -->
+      <div id="owner-sub-settings" class="owner-sub-panel hidden glass-card p-6 rounded-2xl max-w-2xl space-y-5">
+        <h3 class="text-lg font-bold text-white border-b border-slate-800 pb-3">Business Profile & Credentials</h3>
+        
+        <form onsubmit="event.preventDefault(); saveOwnerSettings();" class="space-y-4 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Owner Contact Phone Number</label>
+            <input type="text" id="settingPhone" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2.5 text-white" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Contact Email Address</label>
+            <input type="email" id="settingEmail" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2.5 text-white" />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Owner Admin Access PIN</label>
+              <input type="text" id="settingOwnerPin" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2.5 text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Default Driver Duty PIN</label>
+              <input type="text" id="settingDriverPin" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2.5 text-white font-mono" />
+            </div>
+          </div>
+          <button type="submit" class="px-6 py-3 rounded-xl bg-gold text-obsidian font-bold hover:bg-yellow-400 transition">Save Settings</button>
+        </form>
+      </div>
+
+    </section>
+
+    <!-- VIEW 4: DRIVER DUTY PORTAL VIEW -->
+    <section id="view-driver" class="view-panel hidden space-y-6">
+      
+      <!-- Driver Logged Banner -->
+      <div class="glass-card p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border-l-4 border-l-emerald-500">
+        <div class="flex items-center gap-4">
+          <img id="activeDriverAvatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" class="w-12 h-12 rounded-full object-cover border-2 border-emerald-400" alt="Avatar" />
+          <div>
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <span id="activeDriverNameDisplay">Chauffeur Duty Console</span>
+            </h2>
+            <p class="text-xs text-slate-400">Assigned Vehicle: <span id="activeDriverVehicleDisplay" class="text-gold font-semibold">Innova Crysta</span></p>
+          </div>
+        </div>
+        <button onclick="logoutDriver()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i> Switch Driver
+        </button>
+      </div>
+
+      <h3 class="text-lg font-bold text-white">Your Assigned Trips</h3>
+
+      <!-- Assigned Trips List -->
+      <div id="driverAssignedTripsList" class="space-y-4">
+        <!-- Dynamically rendered driver trip cards -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Sticky Mobile Action Bar -->
+  <div class="sm:hidden fixed bottom-4 left-4 right-4 z-40 flex items-center gap-2">
+    <a href="tel:+919898710612" class="flex-1 py-3.5 rounded-xl bg-emerald-600 text-white font-bold text-xs text-center shadow-xl flex items-center justify-center gap-2">
+      <i class="fa-solid fa-phone"></i> Direct Call
+    </a>
+    <a href="https://wa.me/919898710612" target="_blank" class="flex-1 py-3.5 rounded-xl bg-green-600 text-white font-bold text-xs text-center shadow-xl flex items-center justify-center gap-2">
+      <i class="fa-brands fa-whatsapp text-lg"></i> WhatsApp
+    </a>
+  </div>
+
+  <!-- Footer -->
+  <footer class="relative z-10 glass-card border-t border-slate-800 mt-12 py-6 text-center text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p>© 2026 SK TRAVELS Safe & Comfortable. All Rights Reserved.</p>
+      <div class="flex items-center space-x-4 text-slate-400">
+        <span>Anand & Vadodara, Gujarat</span>
+        <span>•</span>
+        <a href="mailto:naitikchavda045@gmail.com" class="hover:text-gold transition">naitikchavda045@gmail.com</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODAL: PIN ACCESS AUTHENTICATION -->
+  <div id="pinModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-sm w-full p-6 rounded-2xl border border-gold/30 text-center space-y-4">
+      <div class="w-12 h-12 rounded-full bg-gold/10 text-gold border border-gold/40 flex items-center justify-center mx-auto text-xl">
+        <i id="pinModalIcon" class="fa-solid fa-lock"></i>
+      </div>
+      <h3 id="pinModalTitle" class="text-lg font-bold text-white">Enter Access PIN</h3>
+      <p id="pinModalSub" class="text-xs text-slate-400">Please provide your authorized Security PIN.</p>
+      
+      <input type="password" id="pinInput" placeholder="••••" maxlength="6" class="w-full text-center text-2xl font-mono tracking-widest bg-obsidian border border-slate-700 rounded-xl py-3 text-white focus:outline-none focus:border-gold" />
+      <p id="pinErrorMsg" class="text-xs text-red-400 hidden">Invalid PIN entered. Please try again.</p>
+
+      <div class="flex gap-2">
+        <button onclick="closePinModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 font-semibold text-xs">Cancel</button>
+        <button onclick="submitPinAuth()" class="flex-1 py-2.5 rounded-xl bg-gold text-obsidian font-bold text-xs">Authorize</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT CAR -->
+  <div id="carModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-gold/30 space-y-4 max-h-[90vh] overflow-y-auto">
+      <h3 id="carModalTitle" class="text-lg font-bold text-white border-b border-slate-800 pb-2">Add New Vehicle</h3>
+      
+      <form id="carForm" onsubmit="event.preventDefault(); saveCarModal();" class="space-y-4 text-xs">
+        <input type="hidden" id="carModalId" />
+        
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Vehicle Display Name *</label>
+          <input type="text" id="carName" required placeholder="e.g. Toyota Innova Crysta" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Category</label>
+            <select id="carCategory" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white">
+              <option value="Sedan">Executive Sedan</option>
+              <option value="SUV">Spacious SUV</option>
+              <option value="Luxury">Luxury Class</option>
+              <option value="Tempo">Tempo Traveler</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Rate per KM (₹) *</label>
+            <input type="number" id="carRate" required placeholder="14" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Seats Capacity</label>
+            <input type="number" id="carSeats" placeholder="6" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Luggage Capacity</label>
+            <input type="text" id="carLuggage" placeholder="4 Bags" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Car Image URL</label>
+          <input type="url" id="carImage" placeholder="https://..." class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Features Tag (comma separated)</label>
+          <input type="text" id="carTags" placeholder="AC, Dual Airbags, Rear AC Vents, Leather Seats" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeCarModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-6 py-2 rounded-xl bg-gold text-obsidian font-bold">Save Car</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD / EDIT DRIVER -->
+  <div id="driverModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl border border-emerald-500/30 space-y-4 max-h-[90vh] overflow-y-auto">
+      <h3 id="driverModalTitle" class="text-lg font-bold text-white border-b border-slate-800 pb-2">Add New Chauffeur</h3>
+      
+      <form id="driverForm" onsubmit="event.preventDefault(); saveDriverModal();" class="space-y-4 text-xs">
+        <input type="hidden" id="driverModalId" />
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Driver Full Name *</label>
+          <input type="text" id="drvName" required placeholder="e.g. Ramesh Patel" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Phone Mobile *</label>
+            <input type="text" id="drvPhone" required placeholder="9898710612" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Vehicle License Plate *</label>
+            <input type="text" id="drvPlate" required placeholder="GJ-23-AB-9988" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Assigned Vehicle Type</label>
+            <input type="text" id="drvVehicle" placeholder="Innova Crysta" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Driver Portal PIN</label>
+            <input type="text" id="drvPin" placeholder="5555" class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white font-mono" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Photo Avatar URL</label>
+          <input type="url" id="drvPhoto" placeholder="https://..." class="w-full bg-obsidian border border-slate-700 rounded-xl px-4 py-2 text-white" />
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeDriverModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-semibold">Cancel</button>
+          <button type="submit" class="px-6 py-2 rounded-xl bg-emerald-500 text-white font-bold">Save Driver</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MAIN JAVASCRIPT LOGIC PERSISTENCE ENGINE -->
+  <script>
+    /* ==========================================================================
+       1. DEFAULT SEED DATA & LOCALSTORAGE INITIALIZATION
+       ========================================================================== */
+    const DEFAULT_CARS = [
+      {
+        id: 'car-1',
+        name: 'Swift Dzire / Etios',
+        category: 'Sedan',
+        ratePerKm: 12,
+        seats: 4,
+        luggage: '2 Bags',
+        image: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
+        tags: ['AC', 'Compact', 'Clean Interior']
+      },
+      {
+        id: 'car-2',
+        name: 'Toyota Innova Crysta',
+        category: 'SUV',
+        ratePerKm: 17,
+        seats: 7,
+        luggage: '4 Bags',
+        image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
+        tags: ['Rear AC', 'Captain Seats', 'Push Back']
+      },
+      {
+        id: 'car-3',
+        name: 'Mercedes Benz E-Class',
+        category: 'Luxury',
+        ratePerKm: 45,
+        seats: 4,
+        luggage: '3 Bags',
+        image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&w=600&q=80',
+        tags: ['Chauffeur Driven', 'Leather Interior', 'VIP Ride']
+      }
+    ];
+
+    const DEFAULT_DRIVERS = [
+      {
+        id: 'drv-1',
+        name: 'Ramesh Patel',
+        phone: '9898710612',
+        vehicle: 'Toyota Innova Crysta',
+        plate: 'GJ-23-AB-9988',
+        pin: '5555',
+        rating: '4.9 ⭐',
+        status: 'Active',
+        photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
+      },
+      {
+        id: 'drv-2',
+        name: 'Suresh Chavda',
+        phone: '9898710613',
+        vehicle: 'Swift Dzire',
+        plate: 'GJ-01-XY-1234',
+        pin: '5555',
+        rating: '4.8 ⭐',
+        status: 'Active',
+        photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80'
+      }
+    ];
+
+    const DEFAULT_BOOKINGS = [
+      {
+        id: 'SK-8942',
+        customerName: 'Rajesh Sharma',
+        customerPhone: '9898001122',
+        pickup: 'Anand, Vallabh Vidyanagar',
+        drop: 'Ahmedabad Airport (AMD)',
+        dateTime: '2026-10-30T10:00',
+        tripType: 'One Way',
+        carId: 'car-2',
+        carName: 'Toyota Innova Crysta',
+        distanceKm: 75,
+        totalFare: 1275,
+        status: 'Driver En Route',
+        assignedDriverId: 'drv-1',
+        notes: 'Please keep luggage boot ready.'
+      }
+    ];
+
+    // Initialize LocalStorage Data
+    let carsData = JSON.parse(localStorage.getItem('sk_cars')) || DEFAULT_CARS;
+    let driversData = JSON.parse(localStorage.getItem('sk_drivers')) || DEFAULT_DRIVERS;
+    let bookingsData = JSON.parse(localStorage.getItem('sk_bookings')) || DEFAULT_BOOKINGS;
+    let appSettings = JSON.parse(localStorage.getItem('sk_settings')) || {
+      phone: '+91 9898710612',
+      email: 'naitikchavda045@gmail.com',
+      ownerPin: '1234',
+      driverPin: '5555'
+    };
+
+    function syncState() {
+      localStorage.setItem('sk_cars', JSON.stringify(carsData));
+      localStorage.setItem('sk_drivers', JSON.stringify(driversData));
+      localStorage.setItem('sk_bookings', JSON.stringify(bookingsData));
+      localStorage.setItem('sk_settings', JSON.stringify(appSettings));
+    }
+
+    /* ==========================================================================
+       2. STATE VARIABLES & NAVIGATION
+       ========================================================================== */
+    let currentSelectedCar = null;
+    let currentBookingDraft = {};
+    let activeTrackingBooking = null;
+    let authTarget = ''; // 'owner' or 'driver'
+    let loggedDriverId = null;
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.view-panel').forEach(panel => panel.classList.add('hidden'));
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-gold', 'bg-gold/10', 'border', 'border-gold/30');
+        btn.classList.add('text-slate-300');
+      });
+
+      const activePanel = document.getElementById(`view-${tabName}`);
+      if (activePanel) activePanel.classList.remove('hidden');
+
+      const activeNavBtn = document.getElementById(`nav-${tabName}`);
+      if (activeNavBtn) {
+        activeNavBtn.classList.add('text-gold', 'bg-gold/10', 'border', 'border-gold/30');
+      }
+
+      if (tabName === 'track') {
+        initLeafletMap();
+      } else if (tabName === 'owner') {
+        renderOwnerDashboard();
+      } else if (tabName === 'driver') {
+        renderDriverDashboard();
+      }
+    }
+
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobileMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    /* ==========================================================================
+       3. AUTOMATIC DISTANCE & FARE CALCULATION ENGINE
+       ========================================================================== */
+    const GUJARAT_ROUTE_DISTANCES = {
+      'anand-ahmedabad': 75,
+      'anand-ahmedabad airport (amd)': 80,
+      'anand-vadodara': 45,
+      'anand-surat': 210,
+      'anand-rajkot': 220,
+      'anand-dwarka': 440,
+      'ahmedabad-mumbai': 530,
+      'vadodara-ahmedabad': 110
+    };
+
+    function calculateDistanceAndFare() {
+      const pickup = (document.getElementById('pickupLoc').value || '').trim().toLowerCase();
+      const drop = (document.getElementById('dropLoc').value || '').trim().toLowerCase();
+      const tripType = document.getElementById('tripType').value;
+
+      let estimatedDistance = 75; // default fallback base
+
+      if (pickup && drop) {
+        const routeKey1 = `${pickup}-${drop}`;
+        const routeKey2 = `${drop}-${pickup}`;
+        
+        if (GUJARAT_ROUTE_DISTANCES[routeKey1]) {
+          estimatedDistance = GUJARAT_ROUTE_DISTANCES[routeKey1];
+        } else if (GUJARAT_ROUTE_DISTANCES[routeKey2]) {
+          estimatedDistance = GUJARAT_ROUTE_DISTANCES[routeKey2];
+        } else {
+          // Dynamic string length hash algorithm for custom Indian addresses
+          const combinedLength = pickup.length + drop.length;
+          estimatedDistance = Math.min(Math.max(combinedLength * 4, 35), 650);
+        }
+      }
+
+      if (tripType === 'Round Trip') estimatedDistance *= 2;
+
+      const lowestRateCar = carsData.reduce((min, c) => c.ratePerKm < min.ratePerKm ? c : min, carsData[0] || { ratePerKm: 12 });
+      const baseFare = estimatedDistance * lowestRateCar.ratePerKm;
+      const hours = Math.round(estimatedDistance / 50 * 10) / 10;
+
+      document.getElementById('calcDistance').innerText = estimatedDistance;
+      document.getElementById('calcTime').innerText = `${hours} hrs`;
+      document.getElementById('calcBaseFare').innerText = baseFare.toLocaleString('en-IN');
+
+      currentBookingDraft.distanceKm = estimatedDistance;
+      currentBookingDraft.tripType = tripType;
+    }
+
+    function applyPreset(pickup, drop) {
+      document.getElementById('pickupLoc').value = pickup;
+      document.getElementById('dropLoc').value = drop;
+      calculateDistanceAndFare();
+    }
+
+    /* ==========================================================================
+       4. STEP-BY-STEP CUSTOMER BOOKING WIZARD
+       ========================================================================== */
+    function goToStep1() {
+      document.getElementById('booking-step-1').classList.remove('hidden');
+      document.getElementById('booking-step-2').classList.add('hidden');
+      document.getElementById('booking-step-3').classList.add('hidden');
+      updateStepIndicator(1);
+    }
+
+    function goToStep2() {
+      const pickup = document.getElementById('pickupLoc').value.trim();
+      const drop = document.getElementById('dropLoc').value.trim();
+      if (!pickup || !drop) {
+        alert('Please enter both pickup and destination locations to proceed.');
+        return;
+      }
+
+      currentBookingDraft.pickup = pickup;
+      currentBookingDraft.drop = drop;
+      currentBookingDraft.dateTime = document.getElementById('travelDateTime').value || new Date().toISOString().slice(0, 16);
+
+      document.getElementById('step2DistanceText').innerText = currentBookingDraft.distanceKm || 75;
+      document.getElementById('step2TripTypeText').innerText = currentBookingDraft.tripType || 'One Way';
+
+      renderFleetCards();
+
+      document.getElementById('booking-step-1').classList.add('hidden');
+      document.getElementById('booking-step-2').classList.remove('hidden');
+      document.getElementById('booking-step-3').classList.add('hidden');
+      updateStepIndicator(2);
+    }
+
+    function renderFleetCards() {
+      const grid = document.getElementById('fleetCardsGrid');
+      grid.innerHTML = '';
+
+      carsData.forEach(car => {
+        const totalFare = car.ratePerKm * (currentBookingDraft.distanceKm || 75);
+
+        const cardHtml = `
+          <div class="glass-card rounded-2xl p-5 border border-slate-800 hover:border-gold/50 transition duration-300 flex flex-col justify-between group">
+            <div class="space-y-4">
+              <div class="relative h-44 rounded-xl overflow-hidden bg-obsidian">
+                <img src="${car.image}" alt="${car.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" onerror="this.src='https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80'" />
+                <span class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold bg-gold text-obsidian shadow-md">₹${car.ratePerKm}/km</span>
+              </div>
+              <div>
+                <h4 class="text-lg font-extrabold text-white">${car.name}</h4>
+                <p class="text-xs text-slate-400 font-medium">${car.category} • ${car.seats} Seats • ${car.luggage}</p>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                ${(car.tags || []).map(t => `<span class="px-2 py-0.5 rounded bg-surfaceElevated text-[10px] text-slate-300 font-medium">${t}</span>`).join('')}
+              </div>
+            </div>
+
+            <div class="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between">
+              <div>
+                <p class="text-[10px] uppercase text-slate-400">Total Est. Fare</p>
+                <p class="text-xl font-black text-gold">₹${totalFare.toLocaleString('en-IN')}</p>
+              </div>
+              <button onclick="selectCarAndGoToStep3('${car.id}')" class="px-5 py-2.5 rounded-xl bg-gold hover:bg-yellow-400 text-obsidian font-extrabold text-xs transition flex items-center gap-1.5 shadow-md">
+                Select <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              </button>
+            </div>
+          </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', cardHtml);
+      });
+    }
+
+    function selectCarAndGoToStep3(carId) {
+      currentSelectedCar = carsData.find(c => c.id === carId);
+      currentBookingDraft.carId = carId;
+      currentBookingDraft.carName = currentSelectedCar.name;
+      currentBookingDraft.totalFare = currentSelectedCar.ratePerKm * currentBookingDraft.distanceKm;
+
+      const banner = document.getElementById('bookingSummaryBanner');
+      banner.innerHTML = `
+        <div class="flex justify-between items-center text-xs">
+          <span class="text-gold font-bold">${currentSelectedCar.name}</span>
+          <span class="text-emerald-400 font-black text-base">₹${currentBookingDraft.totalFare.toLocaleString('en-IN')}</span>
+        </div>
+        <p class="text-xs text-slate-300"><strong>Route:</strong> ${currentBookingDraft.pickup} ➔ ${currentBookingDraft.drop} (${currentBookingDraft.distanceKm} KM)</p>
+      `;
+
+      document.getElementById('booking-step-2').classList.add('hidden');
+      document.getElementById('booking-step-3').classList.remove('hidden');
+      updateStepIndicator(3);
+    }
+
+    function updateStepIndicator(step) {
+      const fill = document.getElementById('step-line-fill');
+      fill.style.width = step === 1 ? '0%' : step === 2 ? '50%' : '100%';
+
+      for (let i = 1; i <= 3; i++) {
+        const node = document.getElementById(`step-node-${i}`).children[0];
+        if (i <= step) {
+          node.className = "w-10 h-10 rounded-full bg-gold text-obsidian font-bold flex items-center justify-center ring-4 ring-gold/20 shadow-lg";
+        } else {
+          node.className = "w-10 h-10 rounded-full bg-slate-800 text-slate-400 font-bold flex items-center justify-center ring-4 ring-slate-900 border border-slate-700";
+        }
+      }
+    }
+
+    function finalizeBooking() {
+      const name = document.getElementById('passName').value.trim();
+      const phone = document.getElementById('passPhone').value.trim();
+      const notes = document.getElementById('passNotes').value.trim();
+
+      const bookingId = 'SK-' + Math.floor(1000 + Math.random() * 9000);
+      const assignedDriver = driversData.find(d => d.status === 'Active') || driversData[0];
+
+      const newBooking = {
+        id: bookingId,
+        customerName: name,
+        customerPhone: phone,
+        pickup: currentBookingDraft.pickup,
+        drop: currentBookingDraft.drop,
+        dateTime: currentBookingDraft.dateTime,
+        tripType: currentBookingDraft.tripType,
+        carId: currentBookingDraft.carId,
+        carName: currentBookingDraft.carName,
+        distanceKm: currentBookingDraft.distanceKm,
+        totalFare: currentBookingDraft.totalFare,
+        status: 'Driver En Route',
+        assignedDriverId: assignedDriver.id,
+        notes: notes
+      };
+
+      bookingsData.unshift(newBooking);
+      syncState();
+
+      activeTrackingBooking = newBooking;
+      switchTab('track');
+      loadBookingTrackingUI(newBooking);
+    }
+
+    function bookViaWhatsAppDirect() {
+      const name = document.getElementById('passName').value.trim() || 'Valued Customer';
+      const phone = document.getElementById('passPhone').value.trim() || 'N/A';
+      
+      const msg = `*NEW SK TRAVELS BOOKING REQUEST*%0A` +
+                  `------------------------%0A` +
+                  `*Customer:* ${name} (${phone})%0A` +
+                  `*Pickup:* ${currentBookingDraft.pickup}%0A` +
+                  `*Drop:* ${currentBookingDraft.drop}%0A` +
+                  `*Car:* ${currentBookingDraft.carName}%0A` +
+                  `*Distance:* ${currentBookingDraft.distanceKm} KM%0A` +
+                  `*Estimated Fare:* ₹${currentBookingDraft.totalFare}%0A` +
+                  `*Trip Type:* ${currentBookingDraft.tripType}`;
+
+      window.open(`https://wa.me/919898710612?text=${msg}`, '_blank');
+    }
+
+    /* ==========================================================================
+       5. LEAFLET GPS LIVE TRACKING MAP ENGINE
+       ========================================================================== */
+    let mapInstance = null;
+    let carMarker = null;
+    let routePolyline = null;
+    let simulationTimer = null;
+    let isSimulating = false;
+
+    function initLeafletMap() {
+      if (mapInstance) {
+        mapInstance.invalidateSize();
+        return;
+      }
+
+      // Anand -> Ahmedabad Coordinates default
+      const startCoords = [22.5645, 72.9289]; // Anand
+      const endCoords = [23.0225, 72.5714];   // Ahmedabad
+
+      mapInstance = L.map('leafletMap', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView(startCoords, 10);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19
+      }).addTo(mapInstance);
+
+      // Add start and end pins
+      L.marker(startCoords).addTo(mapInstance).bindPopup("Pickup Point");
+      L.marker(endCoords).addTo(mapInstance).bindPopup("Destination Drop");
+
+      // Polyline route
+      routePolyline = L.polyline([startCoords, endCoords], {
+        color: '#EAB308',
+        weight: 4,
+        dashArray: '8, 8'
+      }).addTo(mapInstance);
+
+      // Custom Glowing Car Icon
+      const carIcon = L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: `<div style="background:#05070A; border:2px solid #EAB308; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-center; box-shadow:0 0 15px rgba(234,179,8,0.8); text-align:center; margin-left:-17px; margin-top:-17px;"><i class="fa-solid fa-car-side" style="color:#EAB308; font-size:16px; margin:auto;"></i></div>`,
+        iconSize: [34, 34]
+      });
+
+      carMarker = L.marker(startCoords, { icon: carIcon }).addTo(mapInstance);
+    }
+
+    function searchTrackingBooking() {
+      const input = (document.getElementById('trackSearchInput').value || '').trim().toLowerCase();
+      const found = bookingsData.find(b => b.id.toLowerCase() === input || b.customerPhone.includes(input));
+
+      if (found) {
+        activeTrackingBooking = found;
+        loadBookingTrackingUI(found);
+      } else {
+        alert('No active booking found matching ID or Mobile Number.');
+      }
+    }
+
+    function loadBookingTrackingUI(booking) {
+      const drv = driversData.find(d => d.id === booking.assignedDriverId) || driversData[0];
+
+      document.getElementById('trackBookingId').innerText = booking.id;
+      document.getElementById('trackPickup').innerText = booking.pickup;
+      document.getElementById('trackDrop').innerText = booking.drop;
+      document.getElementById('trackDistance').innerText = `${booking.distanceKm} KM`;
+      document.getElementById('trackStatusBadge').innerText = booking.status;
+
+      document.getElementById('trackDriverName').innerText = drv.name;
+      document.getElementById('trackDriverCar').innerText = drv.vehicle;
+      document.getElementById('trackDriverPlate').innerText = drv.plate;
+      document.getElementById('trackDriverImg').src = drv.photo;
+      document.getElementById('trackCallBtn').href = `tel:${drv.phone}`;
+      document.getElementById('trackWhatsappBtn').href = `https://wa.me/91${drv.phone}`;
+
+      if (mapInstance) mapInstance.invalidateSize();
+    }
+
+    function toggleMapSimulation() {
+      const btn = document.getElementById('simPlayBtn');
+      if (isSimulating) {
+        clearInterval(simulationTimer);
+        isSimulating = false;
+        btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> Start Simulation`;
+      } else {
+        isSimulating = true;
+        btn.innerHTML = `<i class="fa-solid fa-pause mr-1"></i> Pause Simulation`;
+        
+        const start = [22.5645, 72.9289];
+        const end = [23.0225, 72.5714];
+        let step = 0;
+        const totalSteps = 100;
+
+        simulationTimer = setInterval(() => {
+          step++;
+          if (step > totalSteps) step = 0;
+          
+          const lat = start[0] + (end[0] - start[0]) * (step / totalSteps);
+          const lng = start[1] + (end[1] - start[1]) * (step / totalSteps);
+          
+          if (carMarker) carMarker.setLatLng([lat, lng]);
+        }, 150);
+      }
+    }
+
+    function resetMapSimulation() {
+      if (simulationTimer) clearInterval(simulationTimer);
+      isSimulating = false;
+      document.getElementById('simPlayBtn').innerHTML = `<i class="fa-solid fa-play mr-1"></i> Start Simulation`;
+      if (carMarker) carMarker.setLatLng([22.5645, 72.9289]);
+    }
+
+    /* ==========================================================================
+       6. OWNER / ADMIN DASHBOARD & FULL CRUD ENGINE
+       ========================================================================== */
+    function promptOwnerAccess() {
+      authTarget = 'owner';
+      document.getElementById('pinModalTitle').innerText = 'Owner Control Access';
+      document.getElementById('pinModalSub').innerText = 'Enter your Owner PIN (Default: 1234)';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinErrorMsg').classList.add('hidden');
+      document.getElementById('pinModal').classList.remove('hidden');
+    }
+
+    function promptDriverAccess() {
+      authTarget = 'driver';
+      document.getElementById('pinModalTitle').innerText = 'Driver Duty Console Login';
+      document.getElementById('pinModalSub').innerText = 'Enter Driver PIN (Default: 5555)';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinErrorMsg').classList.add('hidden');
+      document.getElementById('pinModal').classList.remove('hidden');
+    }
+
+    function closePinModal() {
+      document.getElementById('pinModal').classList.add('hidden');
+    }
+
+    function submitPinAuth() {
+      const pin = document.getElementById('pinInput').value.trim();
+
+      if (authTarget === 'owner') {
+        if (pin === appSettings.ownerPin) {
+          closePinModal();
+          switchTab('owner');
+        } else {
+          document.getElementById('pinErrorMsg').classList.remove('hidden');
+        }
+      } else if (authTarget === 'driver') {
+        const matchingDriver = driversData.find(d => d.pin === pin) || (pin === appSettings.driverPin ? driversData[0] : null);
+        if (matchingDriver) {
+          loggedDriverId = matchingDriver.id;
+          closePinModal();
+          switchTab('driver');
+        } else {
+          document.getElementById('pinErrorMsg').classList.remove('hidden');
+        }
+      }
+    }
+
+    function lockOwnerPanel() {
+      switchTab('booking');
+    }
+
+    function renderOwnerDashboard() {
+      document.getElementById('ownerBookingCount').innerText = bookingsData.length;
+      renderOwnerBookings();
+      renderOwnerCars();
+      renderOwnerDrivers();
+      loadOwnerSettingsUI();
+    }
+
+    function switchOwnerTab(subTab) {
+      document.querySelectorAll('.owner-sub-panel').forEach(p => p.classList.add('hidden'));
+      document.querySelectorAll('.owner-nav-btn').forEach(b => {
+        b.classList.remove('bg-gold', 'text-obsidian');
+        b.classList.add('text-slate-400', 'hover:bg-slate-800');
+      });
+
+      document.getElementById(`owner-sub-${subTab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`owner-tab-${subTab}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-400', 'hover:bg-slate-800');
+        activeBtn.classList.add('bg-gold', 'text-obsidian');
+      }
+    }
+
+    function renderOwnerBookings() {
+      const query = (document.getElementById('ownerBookingSearch')?.value || '').toLowerCase();
+      const body = document.getElementById('ownerBookingsTableBody');
+      body.innerHTML = '';
+
+      const filtered = bookingsData.filter(b => 
+        b.customerName.toLowerCase().includes(query) || 
+        b.id.toLowerCase().includes(query) || 
+        b.customerPhone.includes(query)
+      );
+
+      filtered.forEach(b => {
+        const row = `
+          <tr class="hover:bg-surface/50 transition border-b border-slate-800/50">
+            <td class="p-4 font-mono font-bold text-gold">${b.id}</td>
+            <td class="p-4">
+              <p class="font-bold text-white">${b.customerName}</p>
+              <p class="text-[10px] text-slate-400">${b.customerPhone}</p>
+            </td>
+            <td class="p-4">
+              <p class="text-xs text-slate-200">${b.pickup} ➔ ${b.drop}</p>
+              <p class="text-[10px] text-slate-400">${b.distanceKm} KM • ${b.tripType}</p>
+            </td>
+            <td class="p-4 font-semibold text-slate-300">${b.carName}</td>
+            <td class="p-4 font-bold text-emerald-400">₹${b.totalFare}</td>
+            <td class="p-4">
+              <select onchange="updateBookingStatus('${b.id}', this.value)" class="bg-obsidian border border-slate-700 rounded-lg px-2 py-1 text-xs text-white">
+                <option value="Confirmed" ${b.status==='Confirmed'?'selected':''}>Confirmed</option>
+                <option value="Driver En Route" ${b.status==='Driver En Route'?'selected':''}>Driver En Route</option>
+                <option value="In Transit" ${b.status==='In Transit'?'selected':''}>In Transit</option>
+                <option value="Completed" ${b.status==='Completed'?'selected':''}>Completed 🏁</option>
+                <option value="Cancelled" ${b.status==='Cancelled'?'selected':''}>Cancelled</option>
+              </select>
+            </td>
+            <td class="p-4 text-right space-x-2">
+              <button onclick="deleteBooking('${b.id}')" class="px-2.5 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+        body.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    function updateBookingStatus(id, newStatus) {
+      const bk = bookingsData.find(b => b.id === id);
+      if (bk) {
+        bk.status = newStatus;
+        syncState();
+      }
+    }
+
+    function deleteBooking(id) {
+      if (confirm(`Remove booking ${id}?`)) {
+        bookingsData = bookingsData.filter(b => b.id !== id);
+        syncState();
+        renderOwnerBookings();
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       OWNER CAR FLEET CRUD ENGINE (ADD, EDIT, REMOVE)
+       -------------------------------------------------------------------------- */
+    function renderOwnerCars() {
+      const grid = document.getElementById('ownerCarsGrid');
+      grid.innerHTML = '';
+
+      carsData.forEach(car => {
+        const card = `
+          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 relative">
+            <img src="${car.image}" alt="${car.name}" class="w-full h-36 object-cover rounded-xl bg-obsidian" onerror="this.src='https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80'" />
+            <div>
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-white text-base">${car.name}</h4>
+                <span class="text-xs font-bold text-gold">₹${car.ratePerKm}/km</span>
+              </div>
+              <p class="text-xs text-slate-400">${car.category} • ${car.seats} Seats • ${car.luggage}</p>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              ${(car.tags || []).map(t => `<span class="px-2 py-0.5 rounded bg-surfaceElevated text-[10px] text-slate-300">${t}</span>`).join('')}
+            </div>
+            <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+              <button onclick="openEditCarModal('${car.id}')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold">
+                <i class="fa-solid fa-pen mr-1"></i> Edit
+              </button>
+              <button onclick="deleteCar('${car.id}')" class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold">
+                <i class="fa-solid fa-trash mr-1"></i> Remove
+              </button>
+            </div>
+          </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', card);
+      });
+    }
+
+    function openAddCarModal() {
+      document.getElementById('carModalTitle').innerText = 'Add New Vehicle';
+      document.getElementById('carModalId').value = '';
+      document.getElementById('carName').value = '';
+      document.getElementById('carCategory').value = 'Sedan';
+      document.getElementById('carRate').value = '15';
+      document.getElementById('carSeats').value = '4';
+      document.getElementById('carLuggage').value = '2 Bags';
+      document.getElementById('carImage').value = '';
+      document.getElementById('carTags').value = 'AC, Clean Interior';
+      document.getElementById('carModal').classList.remove('hidden');
+    }
+
+    function openEditCarModal(carId) {
+      const car = carsData.find(c => c.id === carId);
+      if (!car) return;
+
+      document.getElementById('carModalTitle').innerText = 'Edit Vehicle Details';
+      document.getElementById('carModalId').value = car.id;
+      document.getElementById('carName').value = car.name;
+      document.getElementById('carCategory').value = car.category;
+      document.getElementById('carRate').value = car.ratePerKm;
+      document.getElementById('carSeats').value = car.seats;
+      document.getElementById('carLuggage').value = car.luggage;
+      document.getElementById('carImage').value = car.image;
+      document.getElementById('carTags').value = (car.tags || []).join(', ');
+      document.getElementById('carModal').classList.remove('hidden');
+    }
+
+    function closeCarModal() {
+      document.getElementById('carModal').classList.add('hidden');
+    }
+
+    function saveCarModal() {
+      const id = document.getElementById('carModalId').value;
+      const name = document.getElementById('carName').value.trim();
+      const category = document.getElementById('carCategory').value;
+      const ratePerKm = parseFloat(document.getElementById('carRate').value) || 12;
+      const seats = parseInt(document.getElementById('carSeats').value) || 4;
+      const luggage = document.getElementById('carLuggage').value.trim() || '2 Bags';
+      const image = document.getElementById('carImage').value.trim() || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80';
+      const tags = document.getElementById('carTags').value.split(',').map(t => t.trim()).filter(Boolean);
+
+      if (id) {
+        // Edit Existing
+        const existing = carsData.find(c => c.id === id);
+        if (existing) {
+          existing.name = name;
+          existing.category = category;
+          existing.ratePerKm = ratePerKm;
+          existing.seats = seats;
+          existing.luggage = luggage;
+          existing.image = image;
+          existing.tags = tags;
+        }
+      } else {
+        // Create New
+        const newCar = {
+          id: 'car-' + Date.now(),
+          name, category, ratePerKm, seats, luggage, image, tags
+        };
+        carsData.push(newCar);
+      }
+
+      syncState();
+      closeCarModal();
+      renderOwnerCars();
+    }
+
+    function deleteCar(id) {
+      if (confirm('Are you sure you want to remove this car from your fleet?')) {
+        carsData = carsData.filter(c => c.id !== id);
+        syncState();
+        renderOwnerCars();
+      }
+    }
+
+    /* --------------------------------------------------------------------------
+       OWNER DRIVER ROSTER CRUD ENGINE (ADD, EDIT, REMOVE, TOGGLE)
+       -------------------------------------------------------------------------- */
+    function renderOwnerDrivers() {
+      const grid = document.getElementById('ownerDriversGrid');
+      grid.innerHTML = '';
+
+      driversData.forEach(drv => {
+        const card = `
+          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 flex flex-col justify-between">
+            <div class="flex items-center gap-4">
+              <img src="${drv.photo}" class="w-14 h-14 rounded-full object-cover border-2 border-gold" alt="${drv.name}" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'" />
+              <div>
+                <h4 class="font-bold text-white text-base">${drv.name}</h4>
+                <p class="text-xs text-gold font-medium">${drv.vehicle}</p>
+                <p class="text-[10px] font-mono text-slate-400">${drv.plate} • PIN: ${drv.pin}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+              <span class="text-xs text-slate-300">Duty Status:</span>
+              <button onclick="toggleDriverDuty('${drv.id}')" class="px-3 py-1 rounded-full text-xs font-bold ${drv.status==='Active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}">
+                ${drv.status}
+              </button>
+            </div>
+
+            <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+              <button onclick="openEditDriverModal('${drv.id}')" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold">
+                <i class="fa-solid fa-pen mr-1"></i> Edit
+              </button>
+              <button onclick="deleteDriver('${drv.id}')" class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-semibold">
+                <i class="fa-solid fa-trash mr-1"></i> Delete
+              </button>
+            </div>
+          </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', card);
+      });
+    }
+
+    function toggleDriverDuty(drvId) {
+      const drv = driversData.find(d => d.id === drvId);
+      if (drv) {
+        drv.status = drv.status === 'Active' ? 'Off Duty' : 'Active';
+        syncState();
+        renderOwnerDrivers();
+      }
+    }
+
+    function openAddDriverModal() {
+      document.getElementById('driverModalTitle').innerText = 'Add New Chauffeur';
+      document.getElementById('driverModalId').value = '';
+      document.getElementById('drvName').value = '';
+      document.getElementById('drvPhone').value = '9898710612';
+      document.getElementById('drvPlate').value = 'GJ-23-AB-0000';
+      document.getElementById('drvVehicle').value = 'Innova Crysta';
+      document.getElementById('drvPin').value = '5555';
+      document.getElementById('drvPhoto').value = '';
+      document.getElementById('driverModal').classList.remove('hidden');
+    }
+
+    function openEditDriverModal(drvId) {
+      const drv = driversData.find(d => d.id === drvId);
+      if (!drv) return;
+
+      document.getElementById('driverModalTitle').innerText = 'Edit Driver Profile';
+      document.getElementById('driverModalId').value = drv.id;
+      document.getElementById('drvName').value = drv.name;
+      document.getElementById('drvPhone').value = drv.phone;
+      document.getElementById('drvPlate').value = drv.plate;
+      document.getElementById('drvVehicle').value = drv.vehicle;
+      document.getElementById('drvPin').value = drv.pin;
+      document.getElementById('drvPhoto').value = drv.photo;
+      document.getElementById('driverModal').classList.remove('hidden');
+    }
+
+    function closeDriverModal() {
+      document.getElementById('driverModal').classList.add('hidden');
+    }
+
+    function saveDriverModal() {
+      const id = document.getElementById('driverModalId').value;
+      const name = document.getElementById('drvName').value.trim();
+      const phone = document.getElementById('drvPhone').value.trim();
+      const plate = document.getElementById('drvPlate').value.trim();
+      const vehicle = document.getElementById('drvVehicle').value.trim() || 'Executive Car';
+      const pin = document.getElementById('drvPin').value.trim() || '5555';
+      const photo = document.getElementById('drvPhoto').value.trim() || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+
+      if (id) {
+        const existing = driversData.find(d => d.id === id);
+        if (existing) {
+          existing.name = name;
+          existing.phone = phone;
+          existing.plate = plate;
+          existing.vehicle = vehicle;
+          existing.pin = pin;
+          existing.photo = photo;
+        }
+      } else {
+        const newDrv = {
+          id: 'drv-' + Date.now(),
+          name, phone, plate, vehicle, pin, photo, rating: '5.0 ⭐', status: 'Active'
+        };
+        driversData.push(newDrv);
+      }
+
+      syncState();
+      closeDriverModal();
+      renderOwnerDrivers();
+    }
+
+    function deleteDriver(id) {
+      if (confirm('Delete this driver profile from system?')) {
+        driversData = driversData.filter(d => d.id !== id);
+        syncState();
+        renderOwnerDrivers();
+      }
+    }
+
+    function loadOwnerSettingsUI() {
+      document.getElementById('settingPhone').value = appSettings.phone;
+      document.getElementById('settingEmail').value = appSettings.email;
+      document.getElementById('settingOwnerPin').value = appSettings.ownerPin;
+      document.getElementById('settingDriverPin').value = appSettings.driverPin;
+    }
+
+    function saveOwnerSettings() {
+      appSettings.phone = document.getElementById('settingPhone').value.trim();
+      appSettings.email = document.getElementById('settingEmail').value.trim();
+      appSettings.ownerPin = document.getElementById('settingOwnerPin').value.trim();
+      appSettings.driverPin = document.getElementById('settingDriverPin').value.trim();
+      syncState();
+      alert('Business Settings saved successfully.');
+    }
+
+    /* ==========================================================================
+       7. DRIVER DUTY PORTAL CONSOLE
+       ========================================================================== */
+    function renderDriverDashboard() {
+      const activeDrv = driversData.find(d => d.id === loggedDriverId) || driversData[0];
+      document.getElementById('activeDriverNameDisplay').innerText = activeDrv.name;
+      document.getElementById('activeDriverVehicleDisplay').innerText = `${activeDrv.vehicle} (${activeDrv.plate})`;
+      document.getElementById('activeDriverAvatar').src = activeDrv.photo;
+
+      const container = document.getElementById('driverAssignedTripsList');
+      container.innerHTML = '';
+
+      const assignedBookings = bookingsData.filter(b => b.assignedDriverId === activeDrv.id);
+
+      if (assignedBookings.length === 0) {
+        container.innerHTML = `<div class="glass-card p-8 rounded-2xl text-center text-slate-400">No active assigned rides currently.</div>`;
+        return;
+      }
+
+      assignedBookings.forEach(bk => {
+        const card = `
+          <div class="glass-card p-6 rounded-2xl border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span class="text-xs font-mono text-gold font-bold">${bk.id}</span>
+                <h4 class="text-lg font-bold text-white">${bk.customerName}</h4>
+              </div>
+              <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400">${bk.status}</span>
+            </div>
+
+            <div class="space-y-2 text-xs text-slate-300">
+              <p><strong>Pickup:</strong> ${bk.pickup}</p>
+              <p><strong>Destination:</strong> ${bk.drop}</p>
+              <p><strong>Fare to Collect:</strong> <span class="text-emerald-400 font-bold text-sm">₹${bk.totalFare}</span></p>
+            </div>
+
+            <div class="flex flex-wrap gap-2 pt-2">
+              <a href="tel:${bk.customerPhone}" class="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-phone"></i> Call Passenger
+              </a>
+              <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(bk.pickup)}" target="_blank" class="px-4 py-2 rounded-xl bg-cyan-600 text-white font-bold text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-location-arrow"></i> Google Maps Navigation
+              </a>
+              <button onclick="markTripCompleteDriver('${bk.id}')" class="px-4 py-2 rounded-xl bg-gold text-obsidian font-extrabold text-xs ml-auto">
+                Mark Completed 🏁
+              </button>
+            </div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', card);
+      });
+    }
+
+    function markTripCompleteDriver(bkId) {
+      const bk = bookingsData.find(b => b.id === bkId);
+      if (bk) {
+        bk.status = 'Completed';
+        syncState();
+        renderDriverDashboard();
+      }
+    }
+
+    function logoutDriver() {
+      loggedDriverId = null;
+      switchTab('booking');
+    }
+
+    /* ==========================================================================
+       8. BACKGROUND CANVASES & ANIMATIONS
+       ========================================================================== */
+    function initBackgroundCanvas() {
+      const canvas = document.getElementById('bgCanvas');
+      const ctx = canvas.getContext('2d');
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      const particles = Array.from({ length: 45 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 2 + 0.5,
+        dx: (Math.random() - 0.5) * 0.4,
+        dy: (Math.random() - 0.5) * 0.4,
+        alpha: Math.random() * 0.5 + 0.1
+      }));
+
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        particles.forEach(p => {
+          p.x += p.dx;
+          p.y += p.dy;
+
+          if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+          if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(234, 179, 8, ${p.alpha})`;
+          ctx.fill();
+        });
+
+        requestAnimationFrame(animate);
+      }
+      animate();
+    }
+
+    /* ==========================================================================
+       INITIAL LOAD ENTRYPOINT
+       ========================================================================== */
+    window.onload = function() {
+      initBackgroundCanvas();
+      calculateDistanceAndFare();
+    };
+  </script>
+
+</body>
+</html>
